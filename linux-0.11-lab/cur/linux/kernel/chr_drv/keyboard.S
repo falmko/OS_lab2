@@ -14,6 +14,7 @@
 
 .text
 .globl keyboard_interrupt
+.globl mouse_interrupt	/* BY Zhengyijie */
 
 /*
  * these are for the keyboard read functions
@@ -79,6 +80,40 @@ set_e0:	movb $1,e0
 	jmp e0_e1
 set_e1:	movb $2,e0
 	jmp e0_e1
+
+
+/*
+ *鼠标终端处理程序 mouse_interruot代码实现
+*/
+/* start */
+mouse_interrupt:	/* BY Zhengyijie */
+	pushl %eax
+	pushl %ebx
+	pushl %ecx
+	pushl %edx
+	push %ds
+	
+	movl $0x10,%eax
+	mov %ax,%ds	/* 为后面的 call 做准备 */
+	xor %eax,%eax
+	inb $0x60,%al	/* 鼠标数据寄存器端口为 0x60, 读入鼠标数据 */
+	pushl %eax
+	call readmouse	/* 调用 C 函数进行细致处理 */
+	
+	addl $4,%esp
+	movb $0x20,%al	/* 8259A 操作命令字 EOI */
+	outb %al,$0xA0	/* 向 8259A 从片发送 EOI */
+	outb %al,$0x20	/* 向 8259A 主片发送 EOI */
+	
+	pop %ds
+	popl %edx
+	popl %ecx
+	popl %ebx
+	popl %eax
+
+	iret
+
+/* end */
 
 /*
  * This routine fills the buffer with max 8 bytes, taken from

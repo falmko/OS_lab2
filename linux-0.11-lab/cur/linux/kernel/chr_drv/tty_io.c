@@ -347,3 +347,90 @@ void do_tty_interrupt(int tty)
 void chr_dev_init(void)
 {
 }
+
+
+
+//鼠标中断处理程序的主体代码
+int volatile jumpp;
+static unsigned char mouse_input_count = 0; //用来记录是鼠标输入的第几个字节的全局变量
+static unsigned char mouse_left_down; //用来记录鼠标左键是否按下
+static unsigned char mouse_right_down; //用来记录鼠标右键是否按下
+static unsigned char mouse_left_move; //用来记录鼠标是否向左移动
+static unsigned char mouse_down_move;//用来记录鼠标是否向下移动
+
+static int mouse_x_position=20; //用来记录鼠标的 x 轴位置
+static int mouse_y_position=20;//用来记录鼠标的 y 轴位置
+static int  fcreate=0;
+int cnt=0;
+//struct message *headd;
+//struct message *cur;
+//...
+//...
+//...
+void readmouse(int mousecode)
+{
+	if(fcreate==0)
+	{
+		fcreate=1;
+		cnt=33;
+	}
+
+	if(mousecode==0xFA || mouse_input_count>=4 )
+	{
+	//0xFA 是 i8042 鼠标命令的成功响应的 ACK 字节，应舍弃，并设置重置条件防止错位
+		mouse_input_count=1;
+		return 0;
+	}
+	if(cnt!=mousecode)
+	{
+		cnt=mousecode;
+	}
+	switch(mouse_input_count)
+	{
+		case 1:
+		{
+			mouse_left_down=(mousecode &0x01) ==0x01;
+			mouse_right_down=(mousecode &0x02)==0x02;
+			mouse_left_move=(mousecode & 0x10)==0x10;
+			mouse_down_move=(mousecode & 0x20)==0x20;
+			mouse_input_count++;
+		}
+		if(mouse_left_down==1 && mouse_left_move==0 && mouse_down_move==0)
+		{
+			post_message();
+		}
+			break;
+		case 2:
+			if(mouse_left_move) mouse_x_position +=(int)(0xFFFFFF00|mousecode);
+			if(mouse_x_position>100) mouse_x_position=100;
+			if(mouse_x_position<0) mouse_x_position=10;
+			mouse_input_count++;
+			break;
+		case 3:
+			if(mouse_down_move) mouse_y_position +=(int)(0xFFFFFF00|mousecode);
+			if(mouse_y_position>200) mouse_y_position=200;
+			if(mouse_y_position<0) mouse_y_position=0;
+			mouse_input_count++;
+			break;
+		case 4:
+			jumpp=jumpp;
+			break;
+		}
+
+}
+
+void post_message()
+{
+
+	cli();
+	if(jumpp<=10)
+	jumpp++;
+	sti();
+	return;
+}
+
+void tt()
+{
+	jumpp=33;
+	return ;
+}

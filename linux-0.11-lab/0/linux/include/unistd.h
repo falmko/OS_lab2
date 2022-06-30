@@ -264,6 +264,8 @@ int getppid(void);
 pid_t getpgrp(void);
 pid_t setsid(void);
 
+void mouse_interrupt(void);	/* BY Zhengyijie */
+
 #define __always_inline inline __attribute__((always_inline))
 
 #endif
