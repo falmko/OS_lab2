@@ -7,9 +7,6 @@
 #define __LIBRARY__
 #include <unistd.h>
 #include <time.h>
-#include <signal.h>
-
-
 
 /*
  * we need this inline - forking from kernel space will result
@@ -28,10 +25,6 @@ __always_inline _syscall0(int,fork)
 __always_inline _syscall0(int,pause)
 __always_inline _syscall1(int,setup,void *,BIOS)
 __always_inline _syscall0(int,sync)
-/*__always_inline _syscall3(int,execve2,const char *, path,char **, argv,char **, envp)
-__always_inline _syscall3(unsigned int,getdents,unsigned int, fd,struct linux_dirent *,dirp,unsigned int ,count)
-__always_inline _syscall1(unsigned int,sleep,unsigned int, seconds)
-__always_inline _syscall2(unsigned int,getcwd,char *,buf,size_t ,size)*/
 
 #include <linux/tty.h>
 #include <linux/sched.h>
@@ -43,8 +36,10 @@ __always_inline _syscall2(unsigned int,getcwd,char *,buf,size_t ,size)*/
 #include <stdarg.h>
 #include <fcntl.h>
 #include <sys/types.h>
+
 #include <linux/fs.h>
-#include <asm/segment.h>
+
+#include <linux/kernel.h>
 
 static char printbuf[1024];
 
@@ -58,6 +53,7 @@ extern void mem_init(long start, long end);
 extern long rd_init(long mem_start, int length);
 extern long kernel_mktime(struct tm * tm);
 extern long startup_time;
+
 /*
  * This is set up by the setup-routine at boot-time
  */
@@ -106,7 +102,6 @@ static long buffer_memory_end = 0;
 static long main_memory_start = 0;
 
 struct drive_info { char dummy[32]; } drive_info;
-
 
 void main(void)		/* This really IS void, no error here. */
 {			/* The startup routine assumes (well, ...) this */
@@ -216,164 +211,75 @@ void init(void)
 	_exit(0);	/* NOTE! _exit, not exit() */
 }
 
-/* start four system calls sys_execve2, sys_getdents, sys_sleep, sys_getcwd */
-
-/*
-int sys_execve2(const char *file,char **argv,char **envp)
+/* BY Zhengyijie */
+/* start */
+#define memstart 0xA0000
+#define memsize 64000
+#define cursor_side 3
+#define width 320
+#define height 200
+#define barrier_width 10
+//struct message *headd;
+//设置图形模式的核心代码（系统调用接口的代码实现）
+int volatile jumpp;
+int ff=0;
+int sys_init_graphics()
 {
+    int i,j,x,y;
+    char *p=0xA0000;
+    if(ff==0)
+    {
+    outb(0x05,0x3CE);
+    outb(0x40,0x3CF);	//设定 256 色，且取出方式为移动拼装
+    outb(0x06,0x3CE);
+    outb(0x05,0x3CF);	//设定显存的地址区域，禁止字符模式
+    outb(0x04,0x3C4);
+    outb(0x08,0x3C5);	//设定将 4 个显存片连在一起
 
-	return 1;
-}
-*/
 
-struct linux_dirent{
-	long d_ino;
-	off_t d_off;
-	unsigned short d_reclen;
-	char d_name[];
-};
+    outb(0x01,0x3D4);
+    outb(0x4F,0x3D5);	//设置 End Horizontal Display 为 79
+    outb(0x03,0x3D4);
+    outb(0x82,0x3D5);	//设置 Display Enable Skew 为 0
 
-#define    dir_size	sizeof(struct linux_dirent)
+    outb(0x07,0x3D4);
+    outb(0x1F,0x3D5);	//设置 Vertical Display End 第 8，9 位为 1 ，0
+    outb(0x12,0x3D4);
+    outb(0x8F,0x3D5);	//设置 Vertical Display End 的低 7 位为 0x8F
+    outb(0x17,0x3D4);
+    outb(0xA3,0x3D5);	//设置 SLDIV =1,将 Scanline Clock 除以 2
 
-int sys_getdents(unsigned int fd,struct linux_dirent *dirp,unsigned int count)
-{
-		/*		by zyj	    
-		先根据当前目录的文件描述符获取当前目录的索引节点，
-		再根据索引节点获取该目录文件的数据，依次遍历每个页表项。*/
-	
-	struct m_inode *z_m_inode;
-	struct buffer_head *z_buffer_head;
-	struct dir_entry *z_dir_entry;
-	
-	z_m_inode = current->filp[fd]->f_inode;
-	z_buffer_head = bread(z_m_inode->i_dev, z_m_inode->i_zone[0]);
-	z_dir_entry = (struct dir_entry *)z_buffer_head->b_data;
-	
-	int i=0, j, res=0;
-	struct linux_dirent z_linux_dir;
-	while (z_dir_entry[i].inode>0)
+
+
+    outb(0x14,0x3D4);
+    outb(0x40,0x3D5);	//设置 DW =1
+    outb(0x13,0x3D4);
+    outb(0x28,0x3D5);	//设置 Offset=40
+
+    outb(0x0C,0x3D4);
+    outb(0x00,0x3D5);
+    outb(0x0D,0x3D4);
+    outb(0x00,0x3D5);	//将 Start Address 设置为 0xA0000
+    ff=1;
+    }
+    
+    
+    //在图形模式下绘制鼠标的核心代码
+    p=memstart;
+    for(i=0;i<memsize;i++) *p++=3;
+    //将背景颜色设置成蓝绿色
+
+    x=20;
+    y=10;
+    for(i=x-cursor_side;i<=x+cursor_side;i++)
+        for(j=y-cursor_side;j<=y+cursor_side;j++)
 	{
-		if (res + dir_size > count)
-		    break;
-
-		z_linux_dir.d_reclen = dir_size;
-		z_linux_dir.d_ino = z_dir_entry[i].inode;
-		z_linux_dir.d_off = 0;
-		
-		for (j = 0; j < 14; j++)
-		{
-		    z_linux_dir.d_name[j] = z_dir_entry[i].name[j];
-		}
-		i++;
-
-		for(j = 0;j <dir_size; j++)
-		{
-		    // 内核态和用户态之间的读写需要put_fs_ 函数
-		    put_fs_byte(((char *)(&z_linux_dir))[j],(char *)dirp + res);
-		    res++;
-		}
-	}
-	return 0;
-}
-
-int sys_sleep(unsigned int seconds)
-{
-	/*	by zyj	    */
-	sys_signal(SIGALRM, SIG_IGN);
-	sys_alarm(seconds);
-	sys_pause();
-	return 0;
-}
-
-
-long sys_getcwd(char * buf, size_t size)
-{
-	/*		by zyj      
-	先获取当前进程父目录的索引节点，然后根据索引节点
-	读取上一级目录数据，遍历目录项。再根据上一级目录的索引节点号
-	得到上上级目录的索引节点号并读取数据，遍历目录项。
-	通过对比得到父目录的文件名，在通过这种方式到当前进程的根目录，
-	再依次得到各级目录的文件名。*/
-    struct m_inode *inode = current->pwd;
-    struct buffer_head *path_head = bread(current->root->i_dev, inode->i_zone[0]);
-    struct dir_entry *getpath = (struct dir_entry *)path_head->b_data;
-    struct m_inode *y_inode;
-    unsigned short z_inode;
-    char* path_buf[512]; 
-    char *tmp_buf;
-    int i = 0,count=0,k;
-
-
-    while(1) 
-    {
-        z_inode = getpath->inode;
-        y_inode = iget(current->root->i_dev, (getpath + 1)->inode);
-        path_head = bread(current->root->i_dev, y_inode->i_zone[0]);
-        getpath = (struct dir_entry*) path_head->b_data;
-
-        int j = 1;
-        while((getpath + j)->inode != z_inode) 
-            j++;
-
-        if (j == 1)
-            break;
-
-        path_buf[i] = (getpath + j)->name;
-        i++;
-    }
-
-    i--;
-    if (i < 0)
-        return NULL;
-
-    while (i >= 0)
-    {
-        k = 0;
-        tmp_buf[count++] = '/';
-        while(path_buf[i][k] != '\0')
-        {
-            tmp_buf[count] = path_buf[i][k];
-            k++;
-            count++;
+            p=(char *) memstart+j*width+i;
+            *p=12;	//鼠标颜色为红色
         }
-        i--;
-    }
 
-    if (count < 0)
-        return NULL;
-
-    for (k = 0; k < count; k++)
-        put_fs_byte(tmp_buf[k], buf+k);
-
-    return (long)(tmp_buf);
+    return 0;
 }
 
-void sys_zyj()
-{
-	/*	by zyj      */
-	/* nothing */
-}
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+/* define sys_get_message, sys_repaint */
+/* end */

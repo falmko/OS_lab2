@@ -701,7 +701,7 @@ void con_init(void)
 	set_trap_gate(0x21,&keyboard_interrupt);
 	set_trap_gate(0x2c,&mouse_interrupt);
 	
-	outb_p(inb_p(0x21)&0xFB,0x21);
+	outb_p(inb_p(0x21)&0xFB,0x21);	// may  outb_p(inb_p(0x21)&0xFB,0x21);
 	//将主片IR2的屏蔽设置为0，即打开
 	outb_p(inb_p(0xA1)&0xEF,0xA1);
 	//将从片IR2的屏蔽打开
