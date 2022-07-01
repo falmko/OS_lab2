@@ -282,4 +282,6 @@ int sys_init_graphics()
 }
 
 /* define sys_get_message, sys_repaint */
+
+
 /* end */

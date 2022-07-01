@@ -1,33 +1,31 @@
-
-
 #define __LIBRARY__
-#include <unistd.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <assert.h>
+#include<stdio.h>
+#include<unistd.h>
+#include<errno.h>
+#define vga_graph_memstart 0xA0000
+#define vga_graph_memsize 64000
+#define cursor_side 6
+#define vga_width 320
+#define vga_height 200
+#define x_pos	20
+#define y_pos	20
 
-_syscall1(unsigned int,sleep,unsigned int,seconds)
+_syscall0(void,init_graphics)
 
-void test_sleep() {
-	time_t time1, time2;
-	int ret;
-	time(&time1);
-	assert(time1 >= 0);
-	ret = sleep(1);
-	assert(ret == 0);
-	time(&time2);
-	assert(time2 >= 0);
-
-	if(time2 - time1 >= 1){	
-		printf("time passwd: %d\n", time2-time1);
-		printf("sleep success.\n");
-	}else{
-		printf("sleep error.\n");
-	}
-}
-
-int main(void) {
-	test_sleep();
+int main(void)
+{
+char *p=vga_graph_memstart;
+	int i=0,j=0;
+	init_graphics();
+	
+	for(i=0;i<vga_graph_memsize;i++)
+	 	*p++ = 3;
+	for (i=x_pos-cursor_side;i<=x_pos+cursor_side;i++)
+		for(j=y_pos-cursor_side;j<=y_pos+cursor_side;j++)
+		{
+			p=(char *)vga_graph_memstart+j*vga_width+i;
+			*p=12;
+		}
 	return 0;
-}
 
+}
