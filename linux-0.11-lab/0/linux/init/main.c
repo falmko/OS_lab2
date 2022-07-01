@@ -34,12 +34,13 @@ __always_inline _syscall0(int,sync)
 
 #include <stddef.h>
 #include <stdarg.h>
+#include <unistd.h>
 #include <fcntl.h>
 #include <sys/types.h>
 
 #include <linux/fs.h>
 
-#include <linux/kernel.h>
+
 
 static char printbuf[1024];
 
@@ -110,7 +111,6 @@ void main(void)		/* This really IS void, no error here. */
  * enable them
  */
  	ROOT_DEV = ORIG_ROOT_DEV;
-	__asm__ volatile ("cld");   /* by wyj */ 	
  	drive_info = DRIVE_INFO;
 	memory_end = (1<<20) + (EXT_MEM_K<<10);
 	memory_end &= 0xfffff000;
@@ -213,7 +213,7 @@ void init(void)
 
 /* BY Zhengyijie */
 /* start */
-#define memstart 0xA0000
+/*#define memstart 0xA0000
 #define memsize 64000
 #define cursor_side 3
 #define width 320
@@ -279,7 +279,7 @@ int sys_init_graphics()
         }
 
     return 0;
-}
+}*/
 
 /* define sys_get_message, sys_repaint */
 
