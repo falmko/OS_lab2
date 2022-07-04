@@ -28,6 +28,12 @@
 #include <linux/mm.h>
 #include <asm/segment.h>
 
+/* BY Zhengyijie */
+/* start */
+/*#include<asm/io.h>
+#include "linux/tty.h"*/
+/* end */
+
 extern int sys_exit(int exit_code);
 extern int sys_close(int fd);
 
@@ -357,3 +363,8 @@ exec_error1:
 		free_page(page[i]);
 	return(retval);
 }
+
+
+
+
+

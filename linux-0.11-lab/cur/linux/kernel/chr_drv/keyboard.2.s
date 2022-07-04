@@ -45,7 +45,6 @@
 
 .text
 .globl keyboard_interrupt
-.globl mouse_interrupt	
 
 
 
@@ -111,40 +110,6 @@ set_e0:	movb $1,e0
 	jmp e0_e1
 set_e1:	movb $2,e0
 	jmp e0_e1
-
-
-
-
-
-
-mouse_interrupt:	
-	pushl %eax
-	pushl %ebx
-	pushl %ecx
-	pushl %edx
-	push %ds
-	
-	movl $0x10,%eax
-	mov %ax,%ds	
-	xor %eax,%eax
-	inb $0x60,%al	
-	pushl %eax
-	call readmouse	
-	
-	addl $4,%esp
-	movb $0x20,%al	
-	outb %al,$0xA0	
-	outb %al,$0x20	
-	
-	pop %ds
-	popl %edx
-	popl %ecx
-	popl %ebx
-	popl %eax
-
-	iret
-
-
 
 
 
@@ -307,7 +272,7 @@ func_table:
 	.long 0x455b5b1b,0x465b5b1b,0x475b5b1b,0x485b5b1b
 	.long 0x495b5b1b,0x4a5b5b1b,0x4b5b5b1b,0x4c5b5b1b
 
-# 329 "keyboard.S"
+# 294 "keyboard.S"
 
 key_map:
 	.byte 0,27
@@ -358,7 +323,7 @@ alt_map:
 	.byte '|
 	.fill 10,1,0
 
-# 484 "keyboard.S"
+# 449 "keyboard.S"
 
 
 

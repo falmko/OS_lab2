@@ -144,12 +144,17 @@
 #define __NR_lstat	84
 #define __NR_readlink	85
 #define __NR_uselib	86
-/* BY Zhengyijie */
+
+/* BY Zhengyijie & chenminghui*/
 /* start */
-#define __NR_init_graphics	87
-#define __NR_get_message	88
-#define __NR_repaint	89
+
+#define __NR_init_graphics 87  
+#define __NR_get_message 88		//添加消息驱动
+#define __NR_timer_create 89		//添加定时器
+#define __NR_paintrect 90
+
 /* end */
+
 #define _syscall0(type,name) \
 type name(void) \
 { \
@@ -269,15 +274,7 @@ int dup2(int oldfd, int newfd);
 int getppid(void);
 pid_t getpgrp(void);
 pid_t setsid(void);
-/* BY Zhengyijie */
-/* start */
-int init_graphics(void);
-int get_message(void);
-int repaint(int x,int y, int h);
 
-void mouse_interrupt(void);	/* BY Zhengyijie */
-
-/* end */
 #define __always_inline inline __attribute__((always_inline))
 
 #endif

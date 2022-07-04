@@ -52,20 +52,7 @@ struct tty_struct {
 	struct tty_queue secondary;
 	};
 
-
-//by cmh
-struct message{
-int mid;		//消息的ID
-int pid;		//消息的目标进程ID，如果是当前进程，该值可设为-1
-struct message *next;	//消息队列要用的信息
-};
-extern struct message *headd;
-extern int volatile jummp;
-extern struct message msg_list[];
 extern struct tty_struct tty_table[];
-
-
-
 
 /*	intr=^C		quit=^|		erase=del	kill=^U
 	eof=^D		vtime=\0	vmin=\1		sxtc=\0

@@ -47,7 +47,7 @@
 #define O_CRNL(tty)	_O_FLAG((tty),OCRNL)
 #define O_NLRET(tty)	_O_FLAG((tty),ONLRET)
 #define O_LCUC(tty)	_O_FLAG((tty),OLCUC)
-
+int volatile global_message;	/* BY Zhengyijie */
 struct tty_struct tty_table[] = {
 	{
 		{ICRNL,		/* change incoming CR to NL */
@@ -348,95 +348,74 @@ void chr_dev_init(void)
 {
 }
 
+/* BY Zhengyijie */
+/* start */
 
+#include <message.h>
 
-//鼠标中断处理程序的主体代码
-int volatile jumpp;
-static unsigned char mouse_input_count = 0; //用来记录是鼠标输入的第几个字节的全局变量
-static unsigned char mouse_left_down; //用来记录鼠标左键是否按下
-static unsigned char mouse_right_down; //用来记录鼠标右键是否按下
-static unsigned char mouse_left_move; //用来记录鼠标是否向左移动
-static unsigned char mouse_down_move;//用来记录鼠标是否向下移动
+// 鼠标中断处理程序的主体代码（鼠标数据解析）
+static unsigned char mouse_input_count = 0; // 用来记录是鼠标输入的第几个字节的全局变量
+static unsigned char mouse_left_down; // 左键按下标志，1表示按下了左键
+static unsigned char mouse_right_down; // 右键按下标志，1表示按下了左键
+static unsigned char mouse_center_down; // 中键按下标志，1表示按下了左键
+										// 保留位，总为1
+static unsigned char mouse_x_sign; // x符号标志位，1表示x位移量位负（向左为负、向右为正）
+static unsigned char mouse_y_sign; // y符号标志位，1表示x位移量位负（向上为正、向下为负）
+static unsigned char mouse_x_overflow; // x溢出标志位，1表示x位移量溢出
+static unsigned char mouse_y_overflow; // y溢出标志位，1表示x位移量溢出
+static unsigned int mouse_x_position = 0; // 鼠标横向移动
+static unsigned int mouse_y_position = 0; // 鼠标纵向移动
+static unsigned int mouse_z_position = 0; // 鼠标滚轮移动
 
-static int mouse_x_position=20; //用来记录鼠标的 x 轴位置
-static int mouse_y_position=20;//用来记录鼠标的 y 轴位置
-static int  fcreate=0;
-int cnt=0;
-//struct message *headd;
-//struct message *cur;
-//...
-//...
-//...
 void readmouse(int mousecode)
 {
-	if(fcreate==0)
-	{
-		fcreate=1;
-		cnt=33;
-	}
-
-	if(mousecode==0xFA || mouse_input_count>=4 )
-	{
-	//0xFA 是 i8042 鼠标命令的成功响应的 ACK 字节，应舍弃，并设置重置条件防止错位
-		mouse_input_count=1;
+	if(mousecode == 0xFA)
+	{ // 0xFA是i8042鼠标命令成功相应的ACK字节
+		mouse_input_count = 1;
 		return 0;
-	}
-	if(cnt!=mousecode)
-	{
-		cnt=mousecode;
 	}
 	switch(mouse_input_count)
 	{
-		case 1:
-		{
-			mouse_left_down=(mousecode &0x01) ==0x01;
-			mouse_right_down=(mousecode &0x02)==0x02;
-			mouse_left_move=(mousecode & 0x10)==0x10;
-			mouse_down_move=(mousecode & 0x20)==0x20;
-			mouse_input_count++;
-		}
-		if(mouse_left_down==1 && mouse_left_move==0 && mouse_down_move==0)
-		{
-			post_message();
-		}
-			break;
-		case 2:
-			if(mouse_left_move) mouse_x_position +=(int)(0xFFFFFF00|mousecode);
-			if(mouse_x_position>100) mouse_x_position=100;
-			if(mouse_x_position<0) mouse_x_position=10;
-			mouse_input_count++;
-			break;
-		case 3:
-			if(mouse_down_move) mouse_y_position +=(int)(0xFFFFFF00|mousecode);
-			if(mouse_y_position>200) mouse_y_position=200;
-			if(mouse_y_position<0) mouse_y_position=0;
-			mouse_input_count++;
-			break;
-		case 4:
-			jumpp=jumpp;
-			break;
-		}
+		case 1: // 处理第一个字节，取出信息
+			mouse_left_down = (mousecode & 0x1) == 0x1;
+			mouse_right_down = (mousecode & 0x2) == 0x2;
+			mouse_center_down = (mousecode & 0x4) == 0x4;
+			mouse_x_sign = (mousecode & 0x10) == 0x10;
+			mouse_y_sign = (mousecode & 0x20) == 0x20;
+			mouse_x_overflow = (mousecode & 0x40) == 0x40;
+			mouse_y_overflow = (mousecode & 0x80) == 0x80;
+			++mouse_input_count;
 
-}
+			if (mouse_left_down)
+			{
+				post_message(MSG_MOUSE_LEFT_DOWN);
+			}
 
-void post_message()
-{
-//	struct message *curr;
-//	curr->next=headd->next;
-//	if(msgg==NULL)return;
-//	while(curr->next!=NULL) {
-//	curr=curr->next;
-//}
-//curr->next=msgg;
-cli();
-if(jumpp<=10)
-jumpp++;
-sti();
-return;
-}
+			if (mouse_right_down)
+			{
+				post_message(MSG_MOUSE_RIGHT_DOWN);
+			}
+			break;
 
-void tt()
-{
-jumpp=33;
-return ;
+		case 2: // 处理第二个字，计算鼠标在x轴上的位置
+			if(mouse_x_sign) // 此时mousecode是8位负数补码表示
+				mouse_x_position += (int)(0xFFFFFF00|mousecode);
+			else
+				mouse_x_position += (int)(mousecode);
+			++mouse_input_count;
+			break;
+
+		case 3: // 处理第三个字，计算鼠标在y轴上的位置
+			if(mouse_y_sign) // 此时mousecode是8位负数补码表示
+				mouse_y_position += (int)(0xFFFFFF00|mousecode);
+			else
+				mouse_y_position += (int)(mousecode);
+			++mouse_input_count;
+			break;
+
+		case 4: // 处理第四个字，计算鼠标在z轴上的位置
+			mouse_z_position += (int)(mousecode);
+			++mouse_input_count;
+			break;
+	}
 }
